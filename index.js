@@ -4,56 +4,55 @@ import lighthouse from "lighthouse";
 import puppeteer from "puppeteer";
 
 const app = express();
+const PORT = process.env.PORT || 8080;
+
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("✅ Servidor QualiX backend funcionando correctamente en Railway con Puppeteer + Lighthouse");
-});
-
 app.post("/api/auditar", async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: "Debe proporcionar una URL válida." });
-    }
+  const { url } = req.body;
 
-    const target = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  if (!url) {
+    return res.status(400).json({ error: "La URL es obligatoria" });
+  }
+
+  try {
+    console.log(`🚀 Iniciando auditoría para: ${url}`);
 
     const browser = await puppeteer.launch({
-      headless: "new",
+      headless: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process"
-      ],
-      executablePath: puppeteer.executablePath(),
+        "--disable-gpu"
+      ]
     });
 
-    const endpoint = new URL(browser.wsEndpoint());
-    const port = endpoint.port;
-
-    const runnerResult = await lighthouse(target, {
-      logLevel: "info",
+    const { lhr } = await lighthouse(url, {
+      port: new URL(browser.wsEndpoint()).port,
       output: "json",
-      port,
+      logLevel: "info",
     });
 
     await browser.close();
 
     res.json({
-      metrics: {
-        performance: runnerResult.lhr.categories.performance.score,
-        accessibility: runnerResult.lhr.categories.accessibility.score,
-        seo: runnerResult.lhr.categories.seo.score,
-        bestPractices: runnerResult.lhr.categories["best-practices"].score,
-      },
+      url: lhr.finalUrl,
+      performance: lhr.categories.performance.score,
+      accessibility: lhr.categories.accessibility.score,
+      bestPractices: lhr.categories["best-practices"].score,
+      seo: lhr.categories.seo.score,
+      promedio: (
+        (lhr.categories.performance.score +
+          lhr.categories.accessibility.score +
+          lhr.categories["best-practices"].score +
+          lhr.categories.seo.score) /
+        4
+      ).toFixed(2),
     });
   } catch (error) {
-    console.error("❌ Error en auditoría:", error);
+    console.error("❌ Error al auditar:", error);
     res.status(500).json({
       error: "No se pudo auditar el sitio",
       detalle: error.message,
@@ -61,7 +60,6 @@ app.post("/api/auditar", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend escuchando en el puerto ${PORT}`);
+  console.log(`✅ Servidor backend en ejecución en puerto ${PORT}`);
 });
