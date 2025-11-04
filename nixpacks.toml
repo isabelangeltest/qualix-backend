@@ -5,9 +5,9 @@ nixPkgs = ["chromium"]
 [phases.install]
 cmds = ["npm ci --omit=dev"]
 
-[start]
-cmd = "npm start"
-
 [variables]
 PORT = "8080"
 PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+
+[start]
+cmd = "npm start"

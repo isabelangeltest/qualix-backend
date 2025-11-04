@@ -1,4 +1,3 @@
-// backend-qualix/index.js
 import express from "express";
 import cors from "cors";
 import puppeteer from "puppeteer";
@@ -11,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (_req, res) => {
-  res.send("✅ QualiX backend OK (Puppeteer + Lighthouse)");
+  res.send("✅ QualiX backend OK (Puppeteer + Lighthouse en Render)");
 });
 
 app.post("/api/auditar", async (req, res) => {
@@ -19,9 +18,9 @@ app.post("/api/auditar", async (req, res) => {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ error: "La URL es obligatoria" });
 
-    // 1) Lanzar Chromium (instalado por Nixpacks) con flags para contenedor
     const executablePath =
       process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium";
+
     const browser = await puppeteer.launch({
       headless: "new",
       executablePath,
@@ -31,44 +30,38 @@ app.post("/api/auditar", async (req, res) => {
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--remote-debugging-port=9222",
-        "--remote-debugging-address=0.0.0.0",
-      ],
+        "--remote-debugging-address=0.0.0.0"
+      ]
     });
 
-    // 2) Conectar Lighthouse al puerto de depuración de ese mismo Chrome
     const flags = {
       logLevel: "error",
       output: "json",
       port: 9222,
-      onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
+      onlyCategories: ["performance", "accessibility", "best-practices", "seo"]
     };
 
-    const runnerResult = await lighthouse(url, flags);
-    const cat = runnerResult.lhr.categories;
+    const runner = await lighthouse(url, flags);
+    const cat = runner.lhr.categories;
 
     const data = {
-      performance: (cat.performance?.score ?? 0) * 100,
-      accessibility: (cat.accessibility?.score ?? 0) * 100,
-      bestPractices: (cat["best-practices"]?.score ?? 0) * 100,
-      seo: (cat.seo?.score ?? 0) * 100,
+      performance: Math.round((cat.performance?.score ?? 0) * 100),
+      accessibility: Math.round((cat.accessibility?.score ?? 0) * 100),
+      bestPractices: Math.round((cat["best-practices"]?.score ?? 0) * 100),
+      seo: Math.round((cat.seo?.score ?? 0) * 100)
     };
 
-    // 3) Cerrar el navegador
     await browser.close();
 
-    return res.json({
+    res.json({
       ...data,
       promedio: (
-        (data.performance + data.accessibility + data.bestPractices + data.seo) /
-        4
-      ).toFixed(2),
+        (data.performance + data.accessibility + data.bestPractices + data.seo) / 4
+      ).toFixed(2)
     });
   } catch (err) {
     console.error("❌ Error en auditoría:", err);
-    return res.status(500).json({
-      error: "No se pudo completar la auditoría",
-      detalle: err?.message,
-    });
+    res.status(500).json({ error: "No se pudo completar la auditoría", detalle: err?.message });
   }
 });
 
