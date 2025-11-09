@@ -52,7 +52,7 @@ app.post("/api/auditar", async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error("❌ Error en auditoría:", error.message);
+    console.error("❌ Error en auditoría:", error);
     res.status(500).json({ error: "Fallo al ejecutar Lighthouse" });
   } finally {
     if (browser) await browser.close();
